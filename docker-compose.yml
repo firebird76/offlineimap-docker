@@ -1,0 +1,9 @@
+version: "3.7"
+services:
+  offlineimap:
+    build: .
+    volumes:
+       - /volume2/docker/offlineimap_docker/log:/var/log/
+       - /volume2/docker/offlineimap_docker/offlineimap:/root/.offlineimap
+
+
