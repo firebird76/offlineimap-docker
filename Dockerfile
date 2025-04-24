@@ -5,7 +5,7 @@ FROM debian:stable-slim
 #MAINTAINER Tobias Scharlewsky
 
 LABEL maintainer="dev@scharlewsky.de"
-LABEL build_date="2025-01-10"
+LABEL build_date="2025-04-24"
 
 # update sources list
 RUN apt-get clean
