@@ -13,12 +13,15 @@ on:
   # Run tests for any PRs.
   pull_request:
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   IMAGE_NAME: offlineimap-docker
 
 jobs:
   # Run tests.
-  # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
     runs-on: ubuntu-latest
 
@@ -34,12 +37,9 @@ jobs:
             docker build . --file Dockerfile
           fi
 
-  # Push image to GitHub Package Registry.
-  # See also https://docs.docker.com/docker-hub/builds/
+  # Push image to GitHub Container Registry (ghcr.io).
   push:
-    # Ensure test job passes before pushing image.
     needs: test
-
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
 
@@ -49,25 +49,30 @@ jobs:
       - name: Build image
         run: docker build . --file Dockerfile --tag image
 
-      - name: Log into registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+      - name: Log into GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Push image
+      - name: Tag and push image to ghcr.io
         run: |
-          IMAGE_ID=docker.pkg.github.com/${{ github.repository }}
-          #/$IMAGE_NAME
+          # Registry path
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
 
-          # Strip git ref prefix from version
-          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Derive version from GITHUB_REF (branch or tag)
+          # Strip the ref prefix (refs/heads/ or refs/tags/)
+          VERSION=${GITHUB_REF#refs/*/}
 
-          # Strip "v" prefix from tag name
-          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # If this is a tag like v1.2.3 -> strip leading 'v'
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION=${VERSION#v}
+          fi
 
-          # Use Docker `latest` tag convention
-          [ "$VERSION" == "main" ] && VERSION=latest
+          # Use 'latest' for main branch pushes
+          if [ "$VERSION" = "main" ]; then
+            VERSION=latest
+          fi
 
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
-          
+          echo "IMAGE_ID=$IMAGE_ID"
+          echo "VERSION=$VERSION"
+
           docker tag image $IMAGE_ID:$VERSION
           docker push $IMAGE_ID:$VERSION
